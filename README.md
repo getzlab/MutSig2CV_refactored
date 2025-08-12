@@ -35,24 +35,7 @@ each of these tests, please visit
 
 ## Installing
 
-MutSig is implemented in MATLAB. If you have a MATLAB installation and wish to run MutSig interactively on the MATLAB console, skip to the [Running](#running) section below. If you do not have MATLAB installed, or do not wish to run interactively, MutSig can be run as a standalone executable. The standalone executable is available for 64 bit Linux systems only, and requires that the MATLAB R2013a runtime be installed.
-You can download and install the runtime environment from [here](https://ssd.mathworks.com/supportfiles/downloads/R2013a/deployment_files/R2013a/installers/glnxa64/MCR_R2013a_glnxa64_installer.zip). Runtime installation instructions can be found [here](http://www.mathworks.com/help/compiler/install-the-matlab-runtime.html).
-
-Once the runtime is successfully installed, you must add it to your `LD_LIBRARY_PATH`.
-
-```bash
-MCRROOT=<path to runtime you specified when installing>
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/bin/glnxa64/
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/sys/java/jre/glnxa64/jre/lib/amd64
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/sys/java/jre/glnxa64/jre/lib/amd64/server
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/sys/java/jre/glnxa64/jre/lib/amd64/native_threads
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/sys/os/glnxa64
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/bin/glnxa64
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/runtime/glnxa64
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/lib
-```
-
-MutSig requires ~3 GB of reference files. Since these files are too large to include in a GitHub repository, they are hosted elsewhere. Please download them from [here](https://storage.cloud.google.com/getzlab-workflows-reference_files-oa/MutSig2CV/reference.tar.gz), and copy the `MutSig2CV_reference` directory into this folder.
+MutSig is implemented in MATLAB, it requires ~3 GB of reference files. Since these files are too large to include in a GitHub repository, they are hosted elsewhere. Please download them from [here](https://storage.cloud.google.com/getzlab-workflows-reference_files-oa/MutSig2CV/reference.tar.gz), and copy the `MutSig2CV_reference` directory into this folder.
 
 ## Running <a name="running"></a>
 
