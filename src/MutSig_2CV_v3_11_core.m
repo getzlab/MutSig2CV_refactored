@@ -1,9 +1,12 @@
 function G = MutSig_2CV_v3_11_core(mutation_file, output_dir, mutation_blacklist_file, mutation_type_dictionary_file, coverage_models_mat_file, ...
                                       basewise_coverage_fwb_file, target_list_file, context_and_effect_fwb_file, context_and_effect_categs_file, ...
-                                      covariates_file, conservation_fwb_file, FixedWidthBinary_jar_file, build, params_file)
+                                      covariates_file, conservation_fwb_file, FixedWidthBinary_jar_file, build, params_file, impute_full_coverage)
 
 if nargin<13, error('requires 13 input arguments'); end
-if nargin>14, error('extraneous arguments'); end
+if nargin>15, error('extraneous arguments'); end
+
+% set default value for impute_full_coverage if not provided
+if nargin<15, impute_full_coverage = false; end
 
 % output version report textfile
 MUTSIG_VERSION = '2CV v3.11'
@@ -15,7 +18,7 @@ demand_file(mutation_file);
 if ~strcmp('',mutation_blacklist_file) & ~strcmp('none',mutation_blacklist_file), demand_file(mutation_blacklist_file); end
 demand_file(mutation_type_dictionary_file);
 demand_file(coverage_models_mat_file);
-demand_file(basewise_coverage_fwb_file);
+if ~impute_full_coverage, demand_file(basewise_coverage_fwb_file); end
 demand_file(target_list_file);
 demand_file(context_and_effect_fwb_file);
 demand_file(context_and_effect_categs_file);
@@ -86,7 +89,7 @@ M.FWB.conservation.setNullVal(200);
 M.FWB.context_and_effect = org.broadinstitute.cga.tools.seq.FixedWidthBinary(context_and_effect_fwb_file);
 M.context_and_effect = load_struct(context_and_effect_categs_file);
 M.context_and_effect.context65 = map_categories_to_65(context_and_effect_categs_file);
-if ~strcmpi(basewise_coverage_fwb_file,'IMPUTE_FULL_COVERAGE')
+if ~impute_full_coverage
   M.FWB.basewise_coverage = org.broadinstitute.cga.tools.seq.FixedWidthBinary(basewise_coverage_fwb_file);
   M.FWB.basewise_coverage.setNullVal(0);
 end
@@ -599,6 +602,11 @@ M.gene.pCL = z;
 M.gene.pFN = z;
 M.gene.pCLFN = z;
 
+% Initialize tracking for NaN reasons (NEW - no impact on calculations)
+M.gene.pCL_reason = cell(M.ng,1);
+M.gene.pFN_reason = cell(M.ng,1);
+M.gene.pCLFN_reason = cell(M.ng,1);
+
 tt=tic();
 qqhist = zeros(1,6);
 
@@ -895,12 +903,20 @@ for g=1:M.ng
 
   while(true) % container loop, will only be executed once, but we can "break" out at any point to abort going into the permutations
 
-    if P.skip_permutations || (P.maxperm==0), break; end
+    if P.skip_permutations || (P.maxperm==0)
+        M.gene.pCL_reason{g} = 'permutations_skipped';
+        M.gene.pFN_reason{g} = 'permutations_skipped';
+        M.gene.pCLFN_reason{g} = 'permutations_skipped';
+        break; end
 
     % find the target regions for this gene
     tidx = find(M.targ.gene_idx==g);
     genelength = sum(M.targ.len(tidx));
-    if genelength==0, break; end        % no targets found
+    if genelength==0
+        M.gene.pCL_reason{g} = 'no_targets_found';
+        M.gene.pFN_reason{g} = 'no_targets_found';
+        M.gene.pCLFN_reason{g} = 'no_targets_found';
+        break; end        % no targets found
   
     % find the mutations for this gene and map to targets
     midx = find(M.mut.gene_idx==g & M.effect.include_in_permutations(M.mut.effect_idx));
@@ -917,13 +933,17 @@ for g=1:M.ng
     end
     nm = length(midx);
     M.gene.nmut(g) = nm;
-    if nm<2, break; end  % we only do permutations on genes with >=2 mutations
+    if nm<2
+        M.gene.pCL_reason{g} = 'insufficient_mutations';
+        M.gene.pFN_reason{g} = 'insufficient_mutations';
+        M.gene.pCLFN_reason{g} = 'insufficient_mutations';
+        break; end  % we only do permutations on genes with >=2 mutations
   
     % read conservation, coverage, and context_and_effect for these regions
     conservation_track = double(M.FWB.conservation.get(M.targ.chr(tidx),M.targ.start(tidx),M.targ.end(tidx)));
     conservation_track(conservation_track==200) = NaN;  % missing data
     context_and_effect_track = double(M.FWB.context_and_effect.get(M.targ.chr(tidx),M.targ.start(tidx),M.targ.end(tidx)));
-    if ~strcmpi(basewise_coverage_fwb_file,'IMPUTE_FULL_COVERAGE')
+    if ~impute_full_coverage
       coverage_track = double(M.FWB.basewise_coverage.get(M.targ.chr(tidx),M.targ.start(tidx),M.targ.end(tidx)));
     else
       coverage_track = ones(genelength,1);
@@ -944,7 +964,11 @@ for g=1:M.ng
       coverage_track = round(coverage_track / coverage_track_factor); % maybe should be ceil?
       maxcov = max(coverage_track);
     end
-    if maxcov==0, break; end   % this gene has no coverage
+    if maxcov==0
+        M.gene.pCL_reason{g} = 'no_coverage';
+        M.gene.pFN_reason{g} = 'no_coverage';
+        M.gene.pCLFN_reason{g} = 'no_coverage';
+        break; end   % this gene has no coverage
 
     % enumerate throwable positions for each mutation flavor
     categ = M.mut.categ_idx(midx);
@@ -979,7 +1003,11 @@ for g=1:M.ng
       end
     end
     nthrowable = cellfun('length',throwable);
-    if sum(nthrowable)==0, break; end
+    if sum(nthrowable)==0
+        M.gene.pCL_reason{g} = 'no_throwable_positions';
+        M.gene.pFN_reason{g} = 'no_throwable_positions';
+        M.gene.pCLFN_reason{g} = 'no_throwable_positions';
+        break; end
   
     % range of metrics and bins for joint distrib
     min_clust = 0; max_clust = 1; min_cons = min(conservation_track); max_cons = max(conservation_track);
@@ -1045,6 +1073,10 @@ for g=1:M.ng
     M.gene.pCL(g) = pclust;
     M.gene.pFN(g) = pcons;
     M.gene.pCLFN(g) = p_joint;
+    % NEW CODE: Add reasons after calculations complete
+    M.gene.pCL_reason{g} = 'permutations_completed';
+    M.gene.pFN_reason{g} = 'permutations_completed';
+    M.gene.pCLFN_reason{g} = 'permutations_completed';
     
     break
   end   % end of container loop
@@ -1067,6 +1099,9 @@ for g=1:M.ng
    fprintf('ERROR with gene %s\n',M.gene.name{g});
    disp(me);
    disp(me.message);
+   M.gene.pCL_reason{g} = 'error_occurred';
+   M.gene.pFN_reason{g} = 'error_occurred';
+   M.gene.pCLFN_reason{g} = 'error_occurred';
    %keyboard
  end
 
@@ -1075,7 +1110,7 @@ end, fprintf('\n');   % next gene
 % close track files
 M.FWB.conservation.close();
 M.FWB.context_and_effect.close();
-if ~strcmpi(basewise_coverage_fwb_file,'IMPUTE_FULL_COVERAGE')
+if ~impute_full_coverage
   M.FWB.basewise_coverage.close();
 end
 
@@ -1093,6 +1128,15 @@ idx = find(isnan(M.gene.pCLFN)|isnan(M.gene.nperm)|M.gene.nperm==0);
 M.nperm(idx)=0;
 M.gene.pFN(idx)=nan; M.gene.pCL(idx)=nan; M.gene.pCLFN(idx)=nan;
 M.gene.pmid(idx) = M.gene.pCVmid(idx); M.gene.pmax(idx) = M.gene.pCVmax(idx);
+
+% NEW CODE: Add default reasons after existing logic
+for i=1:length(idx)
+    if isempty(M.gene.pCL_reason{idx(i)})
+        M.gene.pCL_reason{idx(i)} = 'permutations_not_performed';
+        M.gene.pFN_reason{idx(i)} = 'permutations_not_performed';
+        M.gene.pCLFN_reason{idx(i)} = 'permutations_not_performed';
+    end
+end
 
 % FDR
 M.gene.q = calc_fdr_value(M.gene.pmax);
@@ -1175,12 +1219,34 @@ end
 fclose(ssgfile);
 
 %SAVE per_gene.mutation_counts
-pgmc = keep_fields(M.gene, {'name', 'longname', 'chr', 'gene_start', 'gene_end', 'tot_exon_len', 'gc'});
-pgmc = rename_field(pgmc, {'gene_start', 'gene_end', 'tot_exon_len'}, {'start', 'end', 'len'});
-pgmc.cov_gidx = as_column(1:M.ng);
+try
+    pgmc = keep_fields(M.gene, {'name', 'longname', 'chr', 'gene_start', 'gene_end', 'tot_exon_len', 'gc'});
+    pgmc = rename_field(pgmc, {'gene_start', 'gene_end', 'tot_exon_len'}, {'start', 'end', 'len'});
+    pgmc.cov_gidx = as_column(1:M.ng);
 
-%header fieldnames
-pgmc_fn1 = {'name', 'cov_gidx', 'longname', 'chr', 'start', 'end', 'len', 'gc'};
+    %header fieldnames
+    pgmc_fn1 = {'name', 'cov_gidx', 'longname', 'chr', 'start', 'end', 'len', 'gc'};
+catch me
+    % Fallback if fields don't exist - use only available fields
+    fprintf('Warning: Some expected fields not found in M.gene, using available fields only.\n');
+    available_fields = fieldnames(M.gene);
+    pgmc = keep_fields_if_exist(M.gene, {'name', 'longname', 'chr', 'gene_start', 'gene_end', 'tot_exon_len', 'gc'});
+    
+    % Only rename fields that exist
+    if isfield(pgmc, 'gene_start'), pgmc = rename_field(pgmc, 'gene_start', 'start'); end
+    if isfield(pgmc, 'gene_end'), pgmc = rename_field(pgmc, 'gene_end', 'end'); end
+    if isfield(pgmc, 'tot_exon_len'), pgmc = rename_field(pgmc, 'tot_exon_len', 'len'); end
+    pgmc.cov_gidx = as_column(1:M.ng);
+
+    %header fieldnames - only include fields that exist
+    pgmc_fn1 = {'name', 'cov_gidx'};
+    if isfield(pgmc, 'longname'), pgmc_fn1 = [pgmc_fn1, 'longname']; end
+    if isfield(pgmc, 'chr'), pgmc_fn1 = [pgmc_fn1, 'chr']; end
+    if isfield(pgmc, 'start'), pgmc_fn1 = [pgmc_fn1, 'start']; end
+    if isfield(pgmc, 'end'), pgmc_fn1 = [pgmc_fn1, 'end']; end
+    if isfield(pgmc, 'len'), pgmc_fn1 = [pgmc_fn1, 'len']; end
+    if isfield(pgmc, 'gc'), pgmc_fn1 = [pgmc_fn1, 'gc']; end
+end
 pgmc_fn = cat(2, pgmc_fn1, {M.pat.name{:}});
 
 %now print to file 
@@ -1208,5 +1274,75 @@ for i = 1:M.ng,
 end
 
 fclose(pgmcfile);
+
+% NEW CODE: Add permutation reasons output file
+G_reasons = keep_fields_if_exist(G,{'gene','pCL','pFN','pCLFN'});
+G_reasons.pCL_reason = M.gene.pCL_reason(Go);
+G_reasons.pFN_reason = M.gene.pFN_reason(Go);
+G_reasons.pCLFN_reason = M.gene.pCLFN_reason(Go);
+save_struct(G_reasons,[output_dir '/permutation_reasons.txt']);
+
+% NEW CODE: Generate summary statistics
+fprintf('\n=== PERMUTATION REASONS SUMMARY ===\n');
+fprintf('Total genes analyzed: %d\n', M.ng);
+
+% Count genes with calculated p-values
+pCL_calculated = sum(~isnan(M.gene.pCL));
+pFN_calculated = sum(~isnan(M.gene.pFN));
+pCLFN_calculated = sum(~isnan(M.gene.pCLFN));
+
+fprintf('\nGenes with calculated p-values:\n');
+fprintf('  pCL:  %d genes\n', pCL_calculated);
+fprintf('  pFN:  %d genes\n', pFN_calculated);
+fprintf('  pCLFN: %d genes\n', pCLFN_calculated);
+
+% Count NaN reasons
+reasons = {'permutations_skipped', 'no_targets_found', 'insufficient_mutations', ...
+           'no_coverage', 'no_throwable_positions', 'permutations_completed', ...
+           'error_occurred', 'permutations_not_performed'};
+
+fprintf('\nGenes with NaN p-values by reason:\n');
+for r = 1:length(reasons)
+    reason = reasons{r};
+    pCL_count = sum(strcmp(M.gene.pCL_reason, reason));
+    pFN_count = sum(strcmp(M.gene.pFN_reason, reason));
+    pCLFN_count = sum(strcmp(M.gene.pCLFN_reason, reason));
+    
+    if pCL_count > 0 || pFN_count > 0 || pCLFN_count > 0
+        fprintf('  %s:\n', reason);
+        fprintf('    pCL:  %d genes\n', pCL_count);
+        fprintf('    pFN:  %d genes\n', pFN_count);
+        fprintf('    pCLFN: %d genes\n', pCLFN_count);
+    end
+end
+
+% Save summary to file
+summary_file = fopen([output_dir '/permutation_summary.txt'], 'wt');
+fprintf(summary_file, '=== PERMUTATION REASONS SUMMARY ===\n');
+fprintf(summary_file, 'Total genes analyzed: %d\n\n', M.ng);
+
+fprintf(summary_file, 'Genes with calculated p-values:\n');
+fprintf(summary_file, '  pCL:  %d genes\n', pCL_calculated);
+fprintf(summary_file, '  pFN:  %d genes\n', pFN_calculated);
+fprintf(summary_file, '  pCLFN: %d genes\n\n', pCLFN_calculated);
+
+fprintf(summary_file, 'Genes with NaN p-values by reason:\n');
+for r = 1:length(reasons)
+    reason = reasons{r};
+    pCL_count = sum(strcmp(M.gene.pCL_reason, reason));
+    pFN_count = sum(strcmp(M.gene.pFN_reason, reason));
+    pCLFN_count = sum(strcmp(M.gene.pCLFN_reason, reason));
+    
+    if pCL_count > 0 || pFN_count > 0 || pCLFN_count > 0
+        fprintf(summary_file, '  %s:\n', reason);
+        fprintf(summary_file, '    pCL:  %d genes\n', pCL_count);
+        fprintf(summary_file, '    pFN:  %d genes\n', pFN_count);
+        fprintf(summary_file, '    pCLFN: %d genes\n', pCLFN_count);
+    end
+end
+fclose(summary_file);
+
+fprintf('Summary saved to: %s/permutation_summary.txt\n', output_dir);
+fprintf('=== END SUMMARY ===\n\n');
 
 fprintf('Done.\n');

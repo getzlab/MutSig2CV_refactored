@@ -14,7 +14,7 @@ if ~exist('dlm','var')
 end
 
 if iscell(s)
-  s=strvcat(s);
+  s=char(s);
 end
   
 % st=sprintf('%d\t%s\n',(1:size(s,1)),s');

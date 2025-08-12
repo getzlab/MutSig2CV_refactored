@@ -30,11 +30,7 @@ function varname = genvarname(candidate,protected)
 
 
 % Argument check
-if verLessThan('matlab','7.13'),
-   error(nargchk(1, 2, nargin, 'struct'))
-else
-   narginchk(1,2);
-end
+narginchk(1,2);
 
 % Set up protected list if it exists
 if nargin < 2
@@ -53,7 +49,7 @@ else
 end
 
 % Check first input type
-if ~isCellString(varnameCell)
+if ~iscellstr(varnameCell)
     error('MATLAB:genvarname:wrongVarnameType',...
             ['First input argument, VARNAME, must be either a string '...
             'or a cell array of strings.']);
@@ -61,7 +57,7 @@ end
 
 
 % Check second input type
-if ~isCellString(protected)
+if ~iscellstr(protected)
     error('MATLAB:genvarname:wrongProtectedType',...
         ['Second input argument, PROTECTED, must be either a string '...
         'or a cell array of strings.']);
@@ -159,19 +155,6 @@ function isIt = isString(content)
     if ischar(content)
         isIt = (isvector(content) && (size(content,1) == 1)) || isempty(content);
     else
-        isIt = false;
-    end
-    
-function isIt = isCellString(argin)
-    if iscell(argin)
-        for i = 1:numel(argin)
-            if ~isString(argin{i})
-                isIt = false;
-                return;
-            end
-        end
-        isIt = true;
-    else 
         isIt = false;
     end
     
