@@ -45,12 +45,6 @@ To run on the MATLAB console, start MATLAB in this directory, and run:
 MutSig2CV(<path to mutations>, <path to output directory>, [params file])
 ```
 
-To run the standalone application, `cd` to this directory, and run:
-
-```bash
-bin/MutSig2CV <path to mutations> <path to output directory> [params file]
-```
-
 MutSig looks for its reference files relative to this directory, so it is essential it is run here.
 
 Each input is decribed below.
