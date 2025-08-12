@@ -52,7 +52,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/runtime/glnxa64
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MCRROOT/lib
 ```
 
-MutSig requires ~3 GB of reference files. Since these files are too large to include in a GitHub repository, they are hosted elsewhere. Please download them from [here](http://software.broadinstitute.org/cancer/cga/sites/default/files/data/tools/mutsig/MutSig2CV.tar.gz), and copy the `reference` directory into this folder.
+MutSig requires ~3 GB of reference files. Since these files are too large to include in a GitHub repository, they are hosted elsewhere. Please download them from [here](https://storage.cloud.google.com/getzlab-workflows-reference_files-oa/MutSig2CV/reference.tar.gz), and copy the `reference` directory into this folder.
 
 ## Running <a name="running"></a>
 
