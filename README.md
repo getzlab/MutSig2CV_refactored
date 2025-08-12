@@ -28,11 +28,6 @@ genetic sites highly conserved across vertebrates have greater functional
 significance than weakly conserved sites.  MutSig assigns a higher significance
 to genes that experience frequent mutations in highly conserved sites.
 
-For detailed descriptions of the algorithms employed in the MutSig2CV suite for
-each of these tests, please visit
-  https://www.broadinstitute.org/cancer/cga/mutsig
-
-
 ## Installing
 
 MutSig is implemented in MATLAB, it requires ~3 GB of reference files. Since these files are too large to include in a GitHub repository, they are hosted elsewhere. Please download them from [here](https://storage.cloud.google.com/getzlab-workflows-reference_files-oa/MutSig2CV/reference.tar.gz), and copy the `MutSig2CV_reference` directory into this folder.
